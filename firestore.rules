@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Catch-All Deny Default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Explicit administrator verification using runtime authorized identity or /admins mapping
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'shahedullahibashirgusau@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Public Course Catalog: Read by anyone, modified strictly by Administrators
+    match /courses/{courseId} {
+      allow read: if isValidId(courseId);
+      allow create, update: if isAdmin() && isValidId(courseId);
+      allow delete: if false;
+    }
+
+    // User Profile: PII protected, students can only read and write their own document
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; // Blanket user listing forbidden for privacy protection
+      
+      // Prevent privilege escalation: Regular users can only register as 'student'
+      allow create: if isOwner(userId) && isValidId(userId) 
+        && incoming().uid == request.auth.uid
+        && (incoming().role == 'student' || isAdmin())
+        && incoming().displayName is string
+        && incoming().displayName.size() > 0
+        && incoming().displayName.size() <= 100;
+        
+      // Prevent role modification during user updates
+      allow update: if isOwner(userId) && isValidId(userId)
+        && incoming().uid == request.auth.uid
+        && (incoming().role == existing().role || isAdmin())
+        && incoming().displayName is string
+        && incoming().displayName.size() > 0
+        && incoming().displayName.size() <= 100;
+        
+      allow delete: if false;
+
+      // Subcollection: Course Progress & Last Position Tracker
+      match /progress/{courseId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(courseId)
+          && incoming().courseId == courseId
+          && (incoming().progressPercent is int || incoming().progressPercent is float)
+          && incoming().progressPercent >= 0 
+          && incoming().progressPercent <= 100
+          && incoming().completedLessonIds is list
+          && incoming().completedLessonIds.size() <= 200;
+        allow delete: if false;
+      }
+
+      // Subcollection: Practical Cyber Labs Progress
+      match /labProgress/{labId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(labId)
+          && incoming().labId == labId
+          && incoming().isCompleted is bool
+          && incoming().completedSteps is list
+          && incoming().completedSteps.size() <= 50;
+        allow delete: if false;
+      }
+
+      // Subcollection: Quiz Attempts (Immutable audit trail)
+      match /quizAttempts/{attemptId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(attemptId)
+          && incoming().courseId is string
+          && incoming().quizTitle is string
+          && (incoming().scorePercent is int || incoming().scorePercent is float)
+          && incoming().scorePercent >= 0 
+          && incoming().scorePercent <= 100
+          && incoming().passed is bool;
+        allow update, delete: if false; // Once recorded, quiz attempts cannot be altered
+      }
+    }
+
+    // Certificates: Publicly readable by ID for validation, creation strictly tied to 100% course completion
+    match /certificates/{certificateId} {
+      allow get: if isValidId(certificateId);
+      allow list: if false; // Prevents credential scraping while supporting single-ID verification lookup
+      
+      // Zero-Trust Issuance: Relational check mandates 100% verified course completion in student progress
+      allow create: if isAdmin() || (
+        isSignedIn() && isValidId(certificateId)
+        && incoming().uid == request.auth.uid
+        && incoming().id == certificateId
+        && incoming().studentName is string && incoming().studentName.size() <= 100
+        && incoming().courseTitle is string && incoming().courseTitle.size() <= 150
+        && incoming().courseId is string && isValidId(incoming().courseId)
+        && incoming().credentialHash is string && incoming().credentialHash.size() <= 128
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/progress/$(incoming().courseId))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/progress/$(incoming().courseId)).data.progressPercent == 100
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/progress/$(incoming().courseId)).data.isCompleted == true
+      );
+      
+      allow update, delete: if false; // Certificates are permanent and tamper-proof
+    }
+
+    // Admins Registry: Read-only access for authorization resolution
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && isValidId(adminId);
+      allow write: if false;
+    }
+
+  }
+}

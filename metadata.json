@@ -1,0 +1,6 @@
+{
+  "name": "SBCyberBasics Academy",
+  "description": "Professional online cybersecurity academy providing structured education in networking, Linux, ethical hacking, defense, and blockchain security.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

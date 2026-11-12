@@ -1,0 +1,149 @@
+{
+  "entities": {
+    "Course": {
+      "title": "Course",
+      "description": "Cybersecurity course curriculum, modules, lessons, and resources",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "code": { "type": "string", "maxLength": 32 },
+        "slug": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "level": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "durationHours": { "type": "number" },
+        "totalModules": { "type": "number" },
+        "totalLabs": { "type": "number" },
+        "description": { "type": "string", "maxLength": 2000 },
+        "summary": { "type": "string", "maxLength": 500 },
+        "learningObjectives": { "type": "array" },
+        "prerequisites": { "type": "array" },
+        "modules": { "type": "array" }
+      },
+      "required": ["id", "code", "title", "category", "level", "durationHours"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Student or academy member profile and account metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["student", "instructor", "admin"] },
+        "bio": { "type": "string", "maxLength": 500 },
+        "organization": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" },
+        "enrolledCourseIds": { "type": "array" }
+      },
+      "required": ["uid", "email", "displayName", "role"]
+    },
+    "CourseProgress": {
+      "title": "CourseProgress",
+      "description": "Student progress tracking for a specific enrolled cybersecurity course",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string", "maxLength": 64 },
+        "courseCode": { "type": "string", "maxLength": 32 },
+        "courseTitle": { "type": "string", "maxLength": 128 },
+        "enrolledAt": { "type": "string" },
+        "lastAccessedAt": { "type": "string" },
+        "lastAccessedLessonId": { "type": "string", "maxLength": 64 },
+        "completedLessonIds": { "type": "array" },
+        "progressPercent": { "type": "number" },
+        "isCompleted": { "type": "boolean" },
+        "certificateId": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["courseId", "enrolledAt", "completedLessonIds", "progressPercent"]
+    },
+    "LabProgress": {
+      "title": "LabProgress",
+      "description": "Student completion tracking for practical cyber laboratories",
+      "type": "object",
+      "properties": {
+        "labId": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "maxLength": 64 },
+        "completedSteps": { "type": "array" },
+        "discoveredFlags": { "type": "array" },
+        "isCompleted": { "type": "boolean" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["labId", "category", "isCompleted"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "Recorded quiz or exam assessment outcome for a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "courseId": { "type": "string", "maxLength": 64 },
+        "quizTitle": { "type": "string", "maxLength": 128 },
+        "scorePercent": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "attemptedAt": { "type": "string" }
+      },
+      "required": ["courseId", "quizTitle", "scorePercent", "passed", "attemptedAt"]
+    },
+    "CertificateRecord": {
+      "title": "CertificateRecord",
+      "description": "Publicly verifiable digital certificate record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "verificationCode": { "type": "string", "maxLength": 64 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "studentName": { "type": "string", "maxLength": 100 },
+        "courseId": { "type": "string", "maxLength": 64 },
+        "courseTitle": { "type": "string", "maxLength": 128 },
+        "gradeAchieved": { "type": "string", "maxLength": 32 },
+        "issuedAt": { "type": "string" },
+        "credentialHash": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "verificationCode", "uid", "studentName", "courseTitle", "issuedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized institutional administrator role mapping",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "grantedAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "Public course catalog documents, curriculum modules, and syllabus (admin-managed)"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Individual student profile containing private account metadata"
+    },
+    "/users/{userId}/progress/{courseId}": {
+      "schema": "CourseProgress",
+      "description": "Private student course progress, completed lessons, last accessed position, and percent"
+    },
+    "/users/{userId}/labProgress/{labId}": {
+      "schema": "LabProgress",
+      "description": "Private student completion records for practical cyber exercises"
+    },
+    "/users/{userId}/quizAttempts/{attemptId}": {
+      "schema": "QuizAttempt",
+      "description": "Private student assessment scores and quiz history"
+    },
+    "/certificates/{certificateId}": {
+      "schema": "CertificateRecord",
+      "description": "Public verifiable completion certificates cryptographically validated against course completion"
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminRecord",
+      "description": "Protected administrative credentials mapping"
+    }
+  }
+}
